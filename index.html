@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Karten-Generator · Musik-Rate-Karten</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <header class="site-header">
+    <p class="eyebrow">Selbstgemacht · Musik-Rate-Spiel</p>
+    <h1>Karten-Generator</h1>
+    <p class="subline">Jahr, Interpret &amp; Titel eingeben — fertige Vorder- und Rückseiten zum Ausdrucken und Ausschneiden, im 8&nbsp;×&nbsp;8&nbsp;cm Format.</p>
+  </header>
+
+  <main class="layout">
+
+    <!-- ============ EDITOR ============ -->
+    <section class="editor" aria-label="Karten-Editor">
+
+      <div class="quickgen">
+        <h2>Automatisch generieren</h2>
+        <p class="hint">Wählt zufällige Songs direkt aus einer deiner eigenen Spotify-Playlists (siehe „Spotify-Verbindung“ unten) — Titel, Interpret, Jahr und Link kommen exakt von Spotify, kein Rätselraten. Dafür ist beim Erstellen eine Internetverbindung sowie eine einmalige Anmeldung mit deinem Spotify-Account nötig. Es wird keine Songliste im Code gespeichert.</p>
+        <div class="field-row">
+          <div class="field field--count">
+            <label for="random-count">Anzahl</label>
+            <input type="number" id="random-count" min="1" max="100" value="20">
+          </div>
+          <div class="field field--genbtn">
+            <button type="button" id="random-btn" class="btn primary">🎲 Karten generieren</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider" role="separator"></div>
+
+      <form id="card-form" class="card-form" novalidate>
+        <h2 id="form-heading">…oder einzeln hinzufügen</h2>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="year">Jahr</label>
+            <input type="number" id="year" name="year" placeholder="1987" required>
+          </div>
+          <div class="field field--code">
+            <label for="code">Code</label>
+            <input type="text" id="code" name="code" placeholder="A1" maxlength="8" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="artist">Interpret</label>
+          <input type="text" id="artist" name="artist" placeholder="z. B. a-ha" required>
+        </div>
+
+        <div class="field">
+          <label for="title">Titel</label>
+          <input type="text" id="title" name="title" placeholder="z. B. Take On Me" required>
+        </div>
+
+        <div class="field">
+          <label for="link">Link zum Song <span class="optional">(Spotify, YouTube, Apple Music — optional)</span></label>
+          <input type="url" id="link" name="link" placeholder="https://open.spotify.com/track/…">
+          <p class="hint">Leer lassen, und der QR-Code öffnet automatisch eine Spotify-Suche nach Titel &amp; Interpret. Für die geplante Android-App braucht es einen <strong>exakten</strong> Spotify-Track-Link, keine Suche.</p>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="submit-btn" class="btn primary">Karte hinzufügen</button>
+          <button type="button" id="cancel-edit-btn" class="btn ghost" hidden>Abbrechen</button>
+        </div>
+      </form>
+
+      <div class="divider" role="separator"></div>
+
+      <details class="settings" open>
+        <summary>Code-Schema</summary>
+        <div class="field-row">
+          <div class="field">
+            <label for="prefix">Präfix</label>
+            <input type="text" id="prefix" maxlength="3" value="A">
+          </div>
+          <div class="field">
+            <label for="startnum">Start­nummer</label>
+            <input type="number" id="startnum" min="1" value="1">
+          </div>
+        </div>
+        <button type="button" id="renumber-btn" class="btn ghost small">Alle Codes neu vergeben</button>
+      </details>
+
+      <div class="divider" role="separator"></div>
+
+      <details class="settings" open>
+        <summary>Spotify-Verbindung</summary>
+        <div class="field">
+          <label for="spotify-client-id">Spotify Client-ID</label>
+          <input type="text" id="spotify-client-id" placeholder="z. B. 1a2b3c4d…" autocomplete="off">
+          <p class="hint">Aus dem <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">Spotify-Developer-Dashboard</a> (kein Secret nötig — diese Seite nutzt den PKCE-Login). Trag bei deiner App unter "Redirect URIs" genau diese URL ein:</p>
+          <p class="redirect-uri-box"><code id="redirect-uri-display">…</code> <button type="button" id="copy-redirect-btn" class="btn ghost small">Kopieren</button></p>
+          <p class="hint">Außerdem unter "User Management" deinen eigenen Account als Test-User hinzufügen (Pflicht im Development Mode).</p>
+        </div>
+
+        <button type="button" id="spotify-login-btn" class="btn primary small">Mit Spotify verbinden</button>
+        <button type="button" id="spotify-logout-btn" class="btn ghost small danger">Trennen</button>
+        <p id="spotify-auth-status" class="hint"></p>
+
+        <div id="playlist-picker" class="field" hidden>
+          <label for="spotify-playlist-select">Deine Playlist als Quelle</label>
+          <select id="spotify-playlist-select"></select>
+          <button type="button" id="refresh-cache-btn" class="btn ghost small">Playlist-Songs neu laden</button>
+          <p id="playlist-cache-info" class="hint"></p>
+        </div>
+      </details>
+
+      <div class="divider" role="separator"></div>
+
+      <div class="list-header">
+        <h2>Karten <span id="entry-count" class="count-pill">0</span></h2>
+        <div class="list-tools">
+          <button type="button" id="clear-btn" class="btn ghost small danger">Alle löschen</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="entries-table">
+          <thead>
+            <tr>
+              <th class="col-order"></th>
+              <th>Code</th>
+              <th>Jahr</th>
+              <th>Interpret</th>
+              <th>Titel</th>
+              <th class="col-actions"></th>
+            </tr>
+          </thead>
+          <tbody id="entries-body"></tbody>
+        </table>
+        <p id="empty-list-hint" class="empty-hint">Noch keine Karten — füge oben deine erste hinzu.</p>
+      </div>
+
+      <div class="divider" role="separator"></div>
+
+      <div class="io-row">
+        <button type="button" id="export-btn" class="btn ghost small">Als JSON exportieren</button>
+        <label class="btn ghost small file-label">
+          JSON importieren
+          <input type="file" id="import-input" accept="application/json" hidden>
+        </label>
+      </div>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- ============ PREVIEW / PRINT ============ -->
+    <section class="preview" aria-label="Druckvorschau">
+      <div class="preview-toolbar">
+        <div id="count-info" class="count-info"></div>
+        <button type="button" id="print-btn" class="btn primary">Drucken</button>
+      </div>
+
+      <div id="pages-screen">
+        <div id="pages"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Hinweis: Die QR-Codes lassen sich mit jeder Kamera-App oder der Spotify-App scannen und öffnen den Song direkt. Eine Erkennung durch die <strong>offizielle</strong> Hitster-App ist technisch nicht möglich, da diese nur ihre eigene, fest hinterlegte Songdatenbank kennt — dieser Generator erstellt daher eigenständige Karten im selben Spielprinzip. Der Zufallsgenerator liest Songs direkt aus einer deiner eigenen Spotify-Playlists (per Login mit deinem Account) — Jahr, Interpret, Titel und Link kommen komplett von Spotify selbst, ganz ohne Drittquelle.</p>
+  </footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
